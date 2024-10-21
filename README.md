@@ -1,6 +1,6 @@
 ##项目根目录下需要如下目录结构
 
-'''bash
+```bash
 .
 ├─.idea
 │  └─inspectionProfiles
@@ -20,4 +20,4 @@
 │      ├─trainMonet
 │      └─trainReal
 └─scripts
-'''
+```
