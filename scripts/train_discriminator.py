@@ -13,12 +13,58 @@ import os
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'using device {device}')
 
+
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels):
+        super(ResidualBlock, self).__init__()
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.InstanceNorm2d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            nn.InstanceNorm2d(in_channels)
+        )
+
+    def forward(self, x):
+        return x + self.conv_block(x)
+
+
+class SelfAttention(nn.Module):
+    def __init__(self, in_channels):
+        super(SelfAttention, self).__init__()
+        self.query_conv = nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.key_conv = nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.gamma = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        batch_size, C, width, height = x.size()
+        query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)
+        key = self.key_conv(x).view(batch_size, -1, width * height)
+        attention = torch.bmm(query, key)
+        attention = torch.softmax(attention, dim=-1)
+        value = self.value_conv(x).view(batch_size, -1, width * height)
+        out = torch.bmm(value, attention.permute(0, 2, 1))
+        out = out.view(batch_size, C, width, height)
+        out = self.gamma * out + x
+        return out
+
+
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self,num_residual_blocks=9):
         super(Discriminator, self).__init__()
-        self.model = nn.Sequential(
+        self.initial = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(0.2, inplace=True),
+            nn.InstanceNorm2d(64),
+            nn.LeakyReLU(0.2, inplace=True),
+        )
+        self.residual_blocks = nn.Sequential(
+            *[ResidualBlock(64) for _ in range(num_residual_blocks // 2)],
+            SelfAttention(64),
+            *[ResidualBlock(64) for _ in range(num_residual_blocks // 2)]
+        )
+        self.output=nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
@@ -32,26 +78,18 @@ class Discriminator(nn.Module):
             nn.Sigmoid()  # Ensure output is between 0 and 1
         )
 
-    def forward(self, x):
-        x = self.model(x)
-        return x
 
-# class AddGaussianNoise(object):
-#     def __init__(self, mean=0.0, std=1.0):
-#         self.mean = mean
-#         self.std = std
-#
-#     def __call__(self, tensor):
-#         return tensor + torch.randn(tensor.size()) * self.std + self.mean
-#
-#     def __repr__(self):
-#         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+    def forward(self, x):
+        x = self.initial(x)
+        x = self.residual_blocks(x)
+        x = self.output(x)
+        return x
 
 train_preprocess = transforms.Compose([
     transforms.Resize((286, 286)),  # 放大
     transforms.RandomCrop((256, 256)),  # 随机裁剪为256x256
     transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),  # 颜色抖动
-    # AddGaussianNoise(mean=0.0, std=0.1),  # 随机加入一些高斯噪声
     transforms.RandomHorizontalFlip(),  # 随机水平翻转
     transforms.ToTensor(),  # 转换为张量
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])  # 归一化
