@@ -65,8 +65,8 @@ data_base_val = datasets.ImageFolder('../pics/test', transform=train_preprocess)
 
 batch_size = 3
 
-train_loader = DataLoader(data_base_train, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(data_base_val, batch_size=batch_size, shuffle=True)
+train_loader = DataLoader(data_base_train, batch_size=batch_size, shuffle=True,drop_last=True)
+val_loader = DataLoader(data_base_val, batch_size=batch_size, shuffle=True,drop_last=True)
 
 D_divide = Discriminator().to(device)
 criterion = nn.BCELoss()
