@@ -98,6 +98,8 @@ def train(num_epochs=20):
                 outputs = D_divide(inputs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item()
+        if epoch%10 == 1:
+            torch.save(D_divide.state_dict(), f'../model/Dis/D_divide_{epoch}_{val_loss/len(val_loader):.4f}loss.pth')
 
         print(f'Epoch [{epoch+1}/{num_epochs}], Validation Loss: {val_loss/len(val_loader):.4f}')
 
