@@ -1,8 +1,7 @@
 ##项目根目录下需要如下目录结构
 
 .
-
-##├─.idea
+├─.idea
 ##│  └─inspectionProfiles
 ##├─modules
 ##│  └─G_R2M
