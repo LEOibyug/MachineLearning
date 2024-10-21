@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from numpy.ma.core import shape
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
 import itertools
@@ -60,10 +61,10 @@ train_preprocess = transforms.Compose([
 def image_loader(path):
     return Image.open(path).convert('RGB')
 
-data_base_train = datasets.ImageFolder('../pics/train', transform=train_preprocess)
+data_base_train = datasets.ImageFolder('../pics/test', transform=train_preprocess)
 data_base_val = datasets.ImageFolder('../pics/test', transform=train_preprocess)
 
-batch_size = 3
+batch_size = 10
 
 train_loader = DataLoader(data_base_train, batch_size=batch_size, shuffle=True,drop_last=True)
 val_loader = DataLoader(data_base_val, batch_size=batch_size, shuffle=True,drop_last=True)
@@ -78,17 +79,17 @@ def train(num_epochs=20):
         running_loss = 0.0
         for i, (inputs, labels) in enumerate(train_loader):
             inputs = inputs.to(device)
-            labels = labels.to(device).float().view(-1, 1,1,1).repeat(1,1,256,256)
+            labels = labels.to(device).float().unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1,1,256,256)
             optimizer.zero_grad()
             outputs = D_divide(inputs)
+            print(f"i = {i}\nlabels:{labels.size()}\noutputs:{outputs.size()}\n")
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-            if i % 50 == 49:
+            if i % 10 == 9:
                 print(f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{len(train_loader)}], Loss: {running_loss/50:.4f}')
                 running_loss = 0.0
-
         D_divide.eval()
         val_loss = 0.0
         with torch.no_grad():
