@@ -61,10 +61,10 @@ train_preprocess = transforms.Compose([
 def image_loader(path):
     return Image.open(path).convert('RGB')
 
-data_base_train = datasets.ImageFolder('../pics/test', transform=train_preprocess)
-data_base_val = datasets.ImageFolder('../pics/test', transform=train_preprocess)
+data_base_train = datasets.ImageFolder('../pics/train', transform=train_preprocess)
+data_base_val = datasets.ImageFolder('../pics/train', transform=train_preprocess)
 
-batch_size = 10
+batch_size = 30
 
 train_loader = DataLoader(data_base_train, batch_size=batch_size, shuffle=True,drop_last=True)
 val_loader = DataLoader(data_base_val, batch_size=batch_size, shuffle=True,drop_last=True)
@@ -95,7 +95,7 @@ def train(num_epochs=20):
         with torch.no_grad():
             for inputs, labels in val_loader:
                 inputs = inputs.to(device)
-                labels = labels.to(device).float().view(-1, 1)
+                labels = labels.to(device).float().unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1,1,256,256)
                 outputs = D_divide(inputs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item()
