@@ -14,10 +14,10 @@
 │  │  └─trainReal
 │  ├─output
 │  ├─test
-│  │  ├─testMonet
-│  │  └─testReal
+│  │  ├─Monet
+│  │  └─Real
 │  └─train
-│      ├─trainMonet
-│      └─trainReal
+│      ├─Monet
+│      └─Real
 └─scripts
 ```
