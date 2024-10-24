@@ -16,6 +16,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'using device {device}')
 
 
+##########################################################################
 ## Gated-Dconv Feed-Forward Network (GDFN)
 class FeedForward(nn.Module):
     def __init__(self, dim, ffn_expansion_factor, bias):
@@ -115,7 +116,6 @@ class Discriminator(nn.Module):
     def forward(self, x):
         x = self.model(x)
         return x
-
 
 preprocess = transforms.Compose([
     transforms.Resize((256, 256)),
