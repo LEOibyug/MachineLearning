@@ -59,11 +59,11 @@ def infer(image_path, model):
 
 image_dir = ''
 D = Discriminator()
-D.load_state_dict(torch.load('../modules/Dis/25_Dis.pth',map_location=device,weights_only=True))
+D.load_state_dict(torch.load('../../models/Dis/25_Dis.pth', map_location=device, weights_only=True))
 D.to(device)
 D = D.half()
 D.eval()
-real_image_path = '../pics/mixed'
+real_image_path = '../../pics/mixed'
 real_images = os.listdir(real_image_path)
 pic_num = 10
 # 显示图像
