@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import os
 import random
+import time
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -139,14 +140,14 @@ def infer(image_path, model):
 
 image_dir = ''
 D = Discriminator()
-D.load_state_dict(torch.load('../../models/Dis/25_Dis.pth', map_location=device, weights_only=True))
+D.load_state_dict(torch.load('../../models/Dis/100_Dis.pth', map_location=device, weights_only=True))
 D.to(device)
 D.eval()
 real_image_path = '../../pics/mixed'
 real_images = os.listdir(real_image_path)
 pic_num = 10
 # 显示图像
-fig, axs = plt.subplots(pic_num, 1, figsize=(8, 3 * pic_num))
+fig, axs = plt.subplots(pic_num, 1, figsize=(5, 3 * pic_num-9))
 for pic in range(pic_num):
     pic_id = random.randint(0, len(real_images) - 1)
     real_image_name = real_image_path + '/' + real_images[pic_id]
@@ -159,8 +160,9 @@ for pic in range(pic_num):
         answer = 'Real'
     else:
         answer = 'Monet'
-    axs[pic].set_title(f'P = R:{score[0][0][0]:.4f} G:{score[1][0][0]:.4f} B:{score[2][0][0]:.4f} A = {answer}')
+    axs[pic].set_title(f'R:{score[0][0][0]:.4f} G:{score[1][0][0]:.4f} B:{score[2][0][0]:.4f} A = {answer}')
     axs[pic].axis('off')
 
 
 plt.show()
+fig.savefig(f'../../pics/output/{int(time.mktime(time.localtime()))}.png')
