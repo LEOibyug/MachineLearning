@@ -28,35 +28,46 @@ class ResidualBlock(nn.Module):
         return x + self.conv_block(x)
 
 
-class MultiHeadAttention(nn.Module):
-    def __init__(self, in_channels, num_heads=8):
-        super(MultiHeadAttention, self).__init__()
+class MultiHeadSelfAttention(nn.Module):
+    def __init__(self, in_channels, num_heads=4):
+        super(MultiHeadSelfAttention, self).__init__()
         assert in_channels % num_heads == 0, "in_channels must be divisible by num_heads"
+
         self.num_heads = num_heads
         self.head_dim = in_channels // num_heads
 
         self.query_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
         self.key_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
         self.value_conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
         self.gamma = nn.Parameter(torch.zeros(1))
 
     def forward(self, x):
         batch_size, C, width, height = x.size()
 
-        # 计算查询、键、值
-        query = self.query_conv(x).view(batch_size, self.num_heads, self.head_dim, width * height).permute(0, 1, 3, 2)
+        # Compute query, key, value
+        query = self.query_conv(x).view(batch_size, self.num_heads, self.head_dim, width * height)
         key = self.key_conv(x).view(batch_size, self.num_heads, self.head_dim, width * height)
         value = self.value_conv(x).view(batch_size, self.num_heads, self.head_dim, width * height)
 
-        # 计算注意力
-        attention = torch.matmul(query, key.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        # Transpose to get dimensions (batch_size, num_heads, width * height, head_dim)
+        query = query.permute(0, 1, 3, 2)
+        key = key.permute(0, 1, 2, 3)
+
+        # Compute attention scores
+        # print(query.shape, key.shape, value.shape)
+        attention = torch.matmul(query, key) / (self.head_dim ** 0.5)
         attention = torch.softmax(attention, dim=-1)
 
-        # 加权值
-        out = torch.matmul(attention, value).view(batch_size, C, width * height)
+        # Compute the output
+        value = value.permute(0, 1, 3, 2)  # (batch_size, num_heads, width * height, head_dim)
+        out = torch.matmul(attention, value)
+
+        # Reshape back to original dimensions
+        out = out.permute(0, 1, 3, 2).contiguous().view(batch_size, C, width * height)
         out = out.view(batch_size, C, width, height)
 
-        # 残差连接
+        # Add residual connection
         out = self.gamma * out + x
         return out
 
