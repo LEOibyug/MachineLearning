@@ -3,7 +3,6 @@ import itertools
 from scripts.Networks import *
 from scripts.directions import *
 from scripts.imageUtils import *
-from test.train.train_attention import batch_size
 
 
 def train(G_type,device,check_gap,dataloader_real, dataloader_monet, G_R2M, G_M2R, D_R, D_M, criterion_GAN, criterion_cycle, optimizer_G,
