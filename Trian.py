@@ -77,14 +77,13 @@ optimizer_G = optim.Adam(itertools.chain(G_R2M.parameters(), G_M2R.parameters())
 optimizer_D_R = optim.Adam(D_R.parameters(), lr=0.0002, betas=(0.5, 0.999))
 optimizer_D_M = optim.Adam(D_M.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
-dataloader_real = get_data_loader(T_REAL,batch_size)
-dataloader_monet = get_data_loader(T_MONET,batch_size)
-
 G_type = G_R2M.__class__.__name__
 batch_size = 15
 epoch_num = 500
 check_gap = 10
 
+dataloader_real = get_data_loader(T_REAL,batch_size)
+dataloader_monet = get_data_loader(T_MONET,batch_size)
 
 train(G_type,device,check_gap,dataloader_real,dataloader_monet, G_R2M, G_M2R, D_R, D_M, criterion_GAN, criterion_cycle, optimizer_G,
       optimizer_D_R, optimizer_D_M, epoch_num)
