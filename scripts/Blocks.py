@@ -16,6 +16,21 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         return x + self.conv_block(x)
 
+class ResidualBlock_o1(nn.Module):
+    def __init__(self, in_channels):
+        super(ResidualBlock_o1, self).__init__()
+        self.conv_block = nn.Sequential(
+            nn.ReflectionPad2d(1),  # 使用ReflectionPad2d代替padding，可以减少边缘效应
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1),
+            nn.InstanceNorm2d(in_channels),
+            nn.ReLU(inplace=True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1),
+            nn.InstanceNorm2d(in_channels)
+        )
+
+    def forward(self, x):
+        return x + self.conv_block(x)
 
 class SelfAttention(nn.Module):
     def __init__(self, in_channels):

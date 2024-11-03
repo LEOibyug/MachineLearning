@@ -9,7 +9,7 @@ from torchvision import transforms
 from PIL import Image
 import time
 ########################################################################################################
-model_name = 'GeneratorAtt_626.pth'
+model_name = 'Generator_anti.pth'
 ########################################################################################################
 pattern = r'^[^_]+'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -67,7 +67,7 @@ def show_image(tensor):
     plt.axis('off')
     plt.show()
 
-real_image_path = REAL  # 随机读取目录
+real_image_path = T_MONET + '/c1/'  # 随机读取目录
 real_images = os.listdir(real_image_path)
 ########################################################################################################
 pic_num = 10
@@ -106,7 +106,7 @@ if random_draw:
             axs[1].set_title('Fake Monet Image')
             axs[1].axis('off')
     plt.show()
-    fig.savefig(PIC_SAVE+'{int(time.mktime(time.localtime()))}.png', dpi=300)
+    fig.savefig(PIC_SAVE+f'{int(time.mktime(time.localtime()))}.png', dpi=300)
 
 elif len(pic_d) > 0:
     pic_num = len(pic_d)
