@@ -9,12 +9,8 @@ from PIL import Image
 import os
 from scripts.directions import *
 
-# 检查是否有可用的GPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Using device: {device}')
-
-# 设置可用的GPU设备ID列表，例如使用0号和1号GPU
-device_ids = [0, 1]
 
 # 定义自注意力模块
 class SelfAttention(nn.Module):
@@ -184,8 +180,10 @@ def image_loader(path):
 class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, root_real, root_monet, transform=None):
         self.transform = transform
-        self.real_images = sorted([os.path.join(root_real, img) for img in os.listdir(root_real)])
-        self.monet_images = sorted([os.path.join(root_monet, img) for img in os.listdir(root_monet)])
+        self.real_images = sorted([os.path.join(root_real, img)
+                                   for img in os.listdir(root_real)])
+        self.monet_images = sorted([os.path.join(root_monet, img)
+                                    for img in os.listdir(root_monet)])
         self.length = max(len(self.real_images), len(self.monet_images))
 
     def __getitem__(self, index):
@@ -200,21 +198,16 @@ class ImageDataset(torch.utils.data.Dataset):
         return self.length
 
 # 创建数据加载器
-batch_size = 2  # 调整批量大小为2，以适应双卡训练
+batch_size = 8  # CycleGAN的论文中，作者使用的batch_size为1
 dataset = ImageDataset(T_REAL + 'c1/', T_MONET + 'c1/', transform=transform)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
+dataloader = DataLoader(dataset, batch_size=batch_size,
+                        shuffle=True, num_workers=4)
 
 # 初始化网络
-G_R2M = Generator()
-G_M2R = Generator()
-D_R = Discriminator()
-D_M = Discriminator()
-
-# 使用DataParallel包装模型
-G_R2M = nn.DataParallel(G_R2M, device_ids=device_ids).to(device)
-G_M2R = nn.DataParallel(G_M2R, device_ids=device_ids).to(device)
-D_R = nn.DataParallel(D_R, device_ids=device_ids).to(device)
-D_M = nn.DataParallel(D_M, device_ids=device_ids).to(device)
+G_R2M = Generator().to(device)
+G_M2R = Generator().to(device)
+D_R = Discriminator().to(device)
+D_M = Discriminator().to(device)
 
 # 定义损失函数
 criterion_GAN = nn.MSELoss().to(device)
@@ -222,15 +215,19 @@ criterion_cycle = nn.L1Loss().to(device)
 criterion_identity = nn.L1Loss().to(device)
 
 # 定义优化器
-lr = 0.0002
-optimizer_G = optim.Adam(itertools.chain(G_R2M.parameters(), G_M2R.parameters()), lr=lr, betas=(0.5, 0.999))
-optimizer_D_R = optim.Adam(D_R.parameters(), lr=lr, betas=(0.5, 0.999))
-optimizer_D_M = optim.Adam(D_M.parameters(), lr=lr, betas=(0.5, 0.999))
+lr = 0.0001
+optimizer_G = optim.AdamW(itertools.chain(G_R2M.parameters(),
+                                         G_M2R.parameters()), lr=lr, betas=(0.5, 0.999))
+optimizer_D_R = optim.AdamW(D_R.parameters(), lr=lr, betas=(0.5, 0.999))
+optimizer_D_M = optim.AdamW(D_M.parameters(), lr=lr, betas=(0.5, 0.999))
 
 # 学习率调度器
-lr_scheduler_G = optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
-lr_scheduler_D_R = optim.lr_scheduler.LambdaLR(optimizer_D_R, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
-lr_scheduler_D_M = optim.lr_scheduler.LambdaLR(optimizer_D_M, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
+lr_scheduler_G = optim.lr_scheduler.LambdaLR(
+    optimizer_G, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
+lr_scheduler_D_R = optim.lr_scheduler.LambdaLR(
+    optimizer_D_R, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
+lr_scheduler_D_M = optim.lr_scheduler.LambdaLR(
+    optimizer_D_M, lr_lambda=lambda epoch: 1.0 - max(0, epoch - 300) / 100)
 
 # 定义一个缓存，用于存储生成的假样本，提升判别器的稳定性
 class ReplayBuffer():
@@ -279,23 +276,24 @@ for epoch in range(1, epoch_num + 1):
         # GAN loss
         fake_M = G_R2M(real_R)
         pred_fake_M = D_M(fake_M)
-        valid = torch.ones_like(pred_fake_M, requires_grad=False)
+        valid = torch.ones_like(pred_fake_M, requires_grad=False).to(device)
         loss_GAN_R2M = criterion_GAN(pred_fake_M, valid)
 
         fake_R = G_M2R(real_M)
         pred_fake_R = D_R(fake_R)
-        valid = torch.ones_like(pred_fake_R, requires_grad=False)
+        valid = torch.ones_like(pred_fake_R, requires_grad=False).to(device)
         loss_GAN_M2R = criterion_GAN(pred_fake_R, valid)
 
         # Cycle loss
-        recov_R = G_M2R(fake_M)
-        loss_cycle_R = criterion_cycle(recov_R, real_R) * 10.0
+        recovered_R = G_M2R(fake_M)
+        loss_cycle_R = criterion_cycle(recovered_R, real_R) * 10.0
 
-        recov_M = G_R2M(fake_R)
-        loss_cycle_M = criterion_cycle(recov_M, real_M) * 10.0
+        recovered_M = G_R2M(fake_R)
+        loss_cycle_M = criterion_cycle(recovered_M, real_M) * 10.0
 
         # 总的生成器损失
-        loss_G = loss_GAN_R2M + loss_GAN_M2R + loss_cycle_R + loss_cycle_M + loss_id_R + loss_id_M
+        loss_G = loss_GAN_R2M + loss_GAN_M2R + loss_cycle_R + \
+            loss_cycle_M + loss_id_R + loss_id_M
 
         loss_G.backward()
         optimizer_G.step()
@@ -305,16 +303,16 @@ for epoch in range(1, epoch_num + 1):
         # -----------------------
         optimizer_D_R.zero_grad()
 
-        # 使用历史生成的假的图片来训练判别器，提高稳定性
-        fake_R_ = fake_R_buffer.push_and_pop(fake_R)
-
+        # Real loss
         pred_real_R = D_R(real_R)
-        valid = torch.ones_like(pred_real_R, requires_grad=False)
+        valid = torch.ones_like(pred_real_R, requires_grad=False).to(device)
         loss_D_R_real = criterion_GAN(pred_real_R, valid)
 
-        pred_fake_R_ = D_R(fake_R_.detach())
-        fake = torch.zeros_like(pred_fake_R_, requires_grad=False)
-        loss_D_R_fake = criterion_GAN(pred_fake_R_, fake)
+        # Fake loss
+        fake_R_ = fake_R_buffer.push_and_pop(fake_R)
+        pred_fake_R = D_R(fake_R_.detach())
+        fake = torch.zeros_like(pred_fake_R, requires_grad=False).to(device)
+        loss_D_R_fake = criterion_GAN(pred_fake_R, fake)
 
         loss_D_R = (loss_D_R_real + loss_D_R_fake) * 0.5
 
@@ -326,28 +324,30 @@ for epoch in range(1, epoch_num + 1):
         # -----------------------
         optimizer_D_M.zero_grad()
 
-        fake_M_ = fake_M_buffer.push_and_pop(fake_M)
-
+        # Real loss
         pred_real_M = D_M(real_M)
-        valid = torch.ones_like(pred_real_M, requires_grad=False)
+        valid = torch.ones_like(pred_real_M, requires_grad=False).to(device)
         loss_D_M_real = criterion_GAN(pred_real_M, valid)
 
-        pred_fake_M_ = D_M(fake_M_.detach())
-        fake = torch.zeros_like(pred_fake_M_, requires_grad=False)
-        loss_D_M_fake = criterion_GAN(pred_fake_M_, fake)
+        # Fake loss
+        fake_M_ = fake_M_buffer.push_and_pop(fake_M)
+        pred_fake_M = D_M(fake_M_.detach())
+        fake = torch.zeros_like(pred_fake_M, requires_grad=False).to(device)
+        loss_D_M_fake = criterion_GAN(pred_fake_M, fake)
 
         loss_D_M = (loss_D_M_real + loss_D_M_fake) * 0.5
 
         loss_D_M.backward()
         optimizer_D_M.step()
 
+
+
         # --------------
         #  输出日志信息
         # --------------
-       
     print(f"[Epoch {epoch}/{epoch_num}] [Batch {i}/{len(dataloader)}] "
-                  f"[D_R loss: {loss_D_R.item():.4f}] [D_M loss: {loss_D_M.item():.4f}] "
-                  f"[G loss: {loss_G.item():.4f}]")
+                f"[D_R loss: {loss_D_R.item():.4f}] [D_M loss: {loss_D_M.item():.4f}] "
+                f"[G loss: {loss_G.item():.4f}]")
     # 更新学习率
     lr_scheduler_G.step()
     lr_scheduler_D_R.step()
@@ -355,8 +355,7 @@ for epoch in range(1, epoch_num + 1):
 
     # 保存模型
     if epoch % 2 == 0:
-        # 为了兼容DataParallel，需要调整保存方式
-        torch.save(G_R2M.module.state_dict(), f'{G_R2M_SAVE}GeneratorAtt_o1_{epoch}.pth')
-        torch.save(G_M2R.module.state_dict(), f'{G_R2M_SAVE}GeneratorAtt_o1_anti_{epoch}.pth')
+        torch.save(G_R2M.state_dict(), f'{G_R2M_SAVE}GeneratorAtt_o1_{epoch}.pth')
+        torch.save(G_M2R.state_dict(), f'{G_R2M_SAVE}GeneratorAtt_o1_anti_{epoch}.pth')
 
 print('Training finished.')

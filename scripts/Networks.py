@@ -183,3 +183,97 @@ class Generator(nn.Module):
         x = self.residual_blocks(x)
         x = self.upsampling(x)
         return self.output(x)
+
+class GeneratorAttO1(nn.Module):
+    def __init__(self, num_residual_blocks=9):
+        super(GeneratorAttO1, self).__init__()
+        # Initial convolution block
+        self.initial = nn.Sequential(
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(3, 64, kernel_size=7),
+            nn.InstanceNorm2d(64),
+            nn.ReLU(inplace=True)
+        )
+        # Downsampling
+        self.downsampling = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.InstanceNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            nn.InstanceNorm2d(256),
+            nn.ReLU(inplace=True)
+        )
+        # Residual blocks with self-attention
+        res_blocks = []
+        for i in range(num_residual_blocks):
+            # 在第5个残差块后加入自注意力机制
+            if i == num_residual_blocks // 2:
+                res_blocks.append(ResidualBlockAtt(256, use_attention=True))
+            else:
+                res_blocks.append(ResidualBlockAtt(256))
+        self.residual_blocks = nn.Sequential(*res_blocks)
+
+        # Upsampling
+        self.upsampling = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2,
+                               padding=1, output_padding=1),
+            nn.InstanceNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2,
+                               padding=1, output_padding=1),
+            nn.InstanceNorm2d(64),
+            nn.ReLU(inplace=True)
+        )
+        # Output layer
+        self.output = nn.Sequential(
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(64, 3, kernel_size=7),
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        x = self.initial(x)
+        x = self.downsampling(x)
+        x = self.residual_blocks(x)
+        x = self.upsampling(x)
+        return self.output(x)
+
+class DiscriminatorAtt(nn.Module):
+    def __init__(self, input_nc=3):
+        super(DiscriminatorAtt, self).__init__()
+        # 使用70x70 PatchGAN
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(input_nc, 64, kernel_size=4,
+                      stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=4,
+                      stride=2, padding=1),
+            nn.InstanceNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=4,
+                      stride=2, padding=1),
+            nn.InstanceNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        # 在第三层后加入自注意力机制
+        self.attention = SelfAttention_o1(256)
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=4,
+                      stride=1, padding=1),
+            nn.InstanceNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.output_layer = nn.Conv2d(512, 1, kernel_size=4,
+                                      stride=1, padding=1)
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.attention(x)  # 自注意力层
+        x = self.layer4(x)
+        return self.output_layer(x)

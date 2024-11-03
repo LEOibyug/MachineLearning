@@ -9,7 +9,7 @@ from torchvision import transforms
 from PIL import Image
 import time
 ########################################################################################################
-model_name = 'Generator_anti.pth'
+model_name = 'GeneratorAttO1_312.pth'
 ########################################################################################################
 pattern = r'^[^_]+'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -67,7 +67,7 @@ def show_image(tensor):
     plt.axis('off')
     plt.show()
 
-real_image_path = T_MONET + '/c1/'  # 随机读取目录
+real_image_path = REAL  # 随机读取目录
 real_images = os.listdir(real_image_path)
 ########################################################################################################
 pic_num = 10
