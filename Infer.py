@@ -9,7 +9,7 @@ from torchvision import transforms
 from PIL import Image
 import time
 ########################################################################################################
-model_name = 'GeneratorAttO1_312.pth'
+model_name = 'GeneratorAttO1_400.pth'
 ########################################################################################################
 pattern = r'^[^_]+'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
